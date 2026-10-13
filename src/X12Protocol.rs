@@ -1,8 +1,16 @@
 #[derive(Debug, Clone)]
+pub struct CpuFlags {
+    pub zero: bool,
+    pub greater: bool,
+    pub lesser: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct X12Cpu {
     registers: [u16; 8],
     halted: bool,
     pc: usize,
+    flags: CpuFlags,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +38,13 @@ pub enum Instruction {
     Jmp {
         target: usize,
     },
+    Compare {
+        source1: usize,
+        source2: usize,
+    },
+    Jz {
+        target: usize,
+    },
     Halt,
 }
 
@@ -39,6 +54,11 @@ impl X12Cpu {
             registers: [0; 8],
             halted: false,
             pc: 0,
+            flags: CpuFlags {
+                zero: false,
+                greater: false,
+                lesser: false,
+            },
         }
     }
 
@@ -100,8 +120,18 @@ impl X12Cpu {
                 self.write_register(dividend, destination);
             }
 
+            Instruction::Compare { source1, source2 } => {
+                self.compare_registers(source1, source2);
+            }
+
             Instruction::Jmp { target } => {
                 self.pc = target;
+            }
+
+            Instruction::Jz { target } => {
+                if self.flags.zero {
+                    self.pc = target;
+                }
             }
 
             Instruction::Halt => {
@@ -126,10 +156,16 @@ impl X12Cpu {
             };
 
             let is_halt = matches!(&current_instruction, Instruction::Halt);
-            let is_jmp = matches!(&current_instruction, Instruction::Jmp { .. });
+
+            let jumped = match &current_instruction {
+                Instruction::Jmp { .. } => true,
+                Instruction::Jz { .. } => self.flags.zero,
+                _ => false,
+            };
 
             self.execute(current_instruction);
-            if !is_jmp {
+
+            if !jumped {
                 self.increment_pc();
             }
 
@@ -140,6 +176,15 @@ impl X12Cpu {
         }
     }
 
+    pub fn compare_registers(&mut self, source1: usize, source2: usize) {
+        let a = self.read_register(source1);
+        let b = self.read_register(source2);
+
+        self.flags.zero = a == b;
+        self.flags.greater = a > b;
+        self.flags.lesser = a < b;
+    }
+
     pub fn fetch<'a>(&self, program: &'a [Instruction]) -> Option<Instruction> {
         program.get(self.pc).cloned()
     }
@@ -148,6 +193,10 @@ impl X12Cpu {
         println!("Restarting X12 protocol");
         self.halted = false;
         self.pc = 0;
+    }
+
+    pub fn get_flags(&self) -> &CpuFlags {
+        &self.flags
     }
 
     pub fn read_register(&self, index: usize) -> u16 {
