@@ -45,6 +45,15 @@ pub enum Instruction {
     Jz {
         target: usize,
     },
+    Jnz {
+        target: usize,
+    },
+    Jg {
+        target: usize,
+    },
+    Jl {
+        target: usize,
+    },
     Halt,
 }
 
@@ -134,6 +143,24 @@ impl X12Cpu {
                 }
             }
 
+            Instruction::Jnz {target } => {
+                if !self.flags.zero {
+                    self.pc = target;
+                }
+            },
+
+            Instruction::Jg  {target} => {
+                if self.flags.greater {
+                    self.pc = target;
+                }
+            },
+
+            Instruction::Jl {target} => {
+                if self.flags.lesser {
+                    self.pc = target;
+                }
+            },
+
             Instruction::Halt => {
                 self.halted = true;
             }
@@ -160,6 +187,9 @@ impl X12Cpu {
             let jumped = match &current_instruction {
                 Instruction::Jmp { .. } => true,
                 Instruction::Jz { .. } => self.flags.zero,
+                Instruction::Jnz { .. } => !self.flags.zero,
+                Instruction::Jg { .. } => self.flags.greater,
+                Instruction::Jl { .. } => self.flags.lesser,
                 _ => false,
             };
 
