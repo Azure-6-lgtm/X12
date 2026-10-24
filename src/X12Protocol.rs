@@ -8,6 +8,7 @@ pub struct CpuFlags {
 #[derive(Debug, Clone)]
 pub struct X12Cpu {
     registers: [u16; 8],
+    ram: [u16; 256],
     halted: bool,
     pc: usize,
     flags: CpuFlags,
@@ -35,6 +36,14 @@ pub enum Instruction {
         source2: usize,
         destination: usize,
     },
+    Load {
+        address: usize,
+        destination: usize,
+    },
+    Store {
+        source: usize,
+        address: usize,
+    },
     Jmp {
         target: usize,
     },
@@ -61,6 +70,7 @@ impl X12Cpu {
     pub fn new() -> Self {
         Self {
             registers: [0; 8],
+            ram: [0; 256],
             halted: false,
             pc: 0,
             flags: CpuFlags {
@@ -82,8 +92,20 @@ impl X12Cpu {
                 source2,
                 destination,
             } => {
-                let num1 = self.read_register(source1);
-                let num2 = self.read_register(source2);
+                let num1 = match self.read_register(source1) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
+                let num2 = match self.read_register(source2) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
 
                 let sum = num1 + num2;
 
@@ -95,8 +117,20 @@ impl X12Cpu {
                 source2,
                 destination,
             } => {
-                let num1 = self.read_register(source1);
-                let num2 = self.read_register(source2);
+                let num1 = match self.read_register(source1) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
+                let num2 = match self.read_register(source2) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
 
                 let difference = num1 - num2;
 
@@ -108,8 +142,20 @@ impl X12Cpu {
                 source2,
                 destination,
             } => {
-                let num1 = self.read_register(source1);
-                let num2 = self.read_register(source2);
+                let num1 = match self.read_register(source1) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
+                let num2 = match self.read_register(source2) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
 
                 let product = num1 * num2;
 
@@ -121,12 +167,39 @@ impl X12Cpu {
                 source2,
                 destination,
             } => {
-                let num1 = self.read_register(source1);
-                let num2 = self.read_register(source2);
+                let num1 = match self.read_register(source1) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
+                let num2 = match self.read_register(source2) {
+                    Some(value) => value,
+                    None => {
+                        println!("X12 Error: Invalid register");
+                        return;
+                    }
+                };
 
                 let dividend = num1 / num2;
 
                 self.write_register(dividend, destination);
+            }
+
+            Instruction::Load {
+                address,
+                destination,
+            } => {
+                if address < 256 && destination < 8 {
+                    self.registers[destination] = self.ram[address];
+                }
+            }
+
+            Instruction::Store { source, address } => {
+                if address < 256 && source < 8 {
+                    self.ram[address] = self.registers[source];
+                }
             }
 
             Instruction::Compare { source1, source2 } => {
@@ -143,23 +216,23 @@ impl X12Cpu {
                 }
             }
 
-            Instruction::Jnz {target } => {
+            Instruction::Jnz { target } => {
                 if !self.flags.zero {
                     self.pc = target;
                 }
-            },
+            }
 
-            Instruction::Jg  {target} => {
+            Instruction::Jg { target } => {
                 if self.flags.greater {
                     self.pc = target;
                 }
-            },
+            }
 
-            Instruction::Jl {target} => {
+            Instruction::Jl { target } => {
                 if self.flags.lesser {
                     self.pc = target;
                 }
-            },
+            }
 
             Instruction::Halt => {
                 self.halted = true;
@@ -167,10 +240,17 @@ impl X12Cpu {
         };
     }
 
-    pub fn run(&mut self, program: &[Instruction]) {
+    pub fn run(&mut self, program: &[Instruction], max_steps: usize) {
+        let mut steps = 0;
+
         loop {
             if self.halted {
                 println!("X12 CPU has been halted, Exiting");
+                break;
+            }
+
+            if steps >= max_steps {
+                println!("X12 Aborting, Max steps reached");
                 break;
             }
 
@@ -199,6 +279,8 @@ impl X12Cpu {
                 self.increment_pc();
             }
 
+            steps += 1;
+
             if is_halt {
                 println!("X12 CPU has been halted, Exiting");
                 break;
@@ -207,12 +289,25 @@ impl X12Cpu {
     }
 
     pub fn compare_registers(&mut self, source1: usize, source2: usize) {
-        let a = self.read_register(source1);
-        let b = self.read_register(source2);
+        let num1 = match self.read_register(source1) {
+			Some(Value) => {Value},
+			None => {
+    			println!("X12 Error: Invalid register");
+    			return;
+		    },
+        };
 
-        self.flags.zero = a == b;
-        self.flags.greater = a > b;
-        self.flags.lesser = a < b;
+        let num2 = match self.read_register(source2) {
+			Some(Value) => {Value},
+			None => {
+				println!("X12 Error: Invalid register");
+				return;
+			},
+        };
+
+        self.flags.zero = num1 == num2;
+        self.flags.greater = num1 > num2;
+        self.flags.lesser = num1 < num2;
     }
 
     pub fn fetch<'a>(&self, program: &'a [Instruction]) -> Option<Instruction> {
@@ -229,12 +324,26 @@ impl X12Cpu {
         &self.flags
     }
 
-    pub fn read_register(&self, index: usize) -> u16 {
-        self.registers[index]
+    pub fn read_register(&self, index: usize) -> Option<u16> {
+        if index < 8 {
+            Some(self.registers[index])
+        } else {
+            None
+        }
+    }
+
+    pub fn read_ram(&self, index: usize) -> Option<u16> {
+        if index < 256 {
+            Some(self.ram[index])
+        } else {
+            None
+        }
     }
 
     pub fn write_register(&mut self, value: u16, index: usize) {
-        self.registers[index] = value;
+        if index < 8 {
+            self.registers[index] = value;
+        }
     }
 
     pub fn get_pc(&self) -> u16 {
